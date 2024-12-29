@@ -1,0 +1,20 @@
+name: Shellcheck
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-2204
+    name: Check tool
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Shellcheck
+        run: shellcheck -s bash src/apt-deb822-tool.bash
