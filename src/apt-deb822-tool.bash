@@ -349,8 +349,7 @@ to_deb822 () {
         # Only operate on lines with deb or deb-src prefixes (include disabled entries)
         if [[ ${line} =~ ^(deb|#deb|deb-src|#deb-src) ]]; then
             local deb822
-            deb822=$(apt_source_line_to_deb822_line "${line}")
-            if [[ $? -ne 0 ]]; then
+            if ! deb822=$(apt_source_line_to_deb822_line "${line}"); then
                 log_verbose "There were errors while converting an entry from ${file}"
                 errors=1
             fi
@@ -403,8 +402,7 @@ to_list () {
 
     for entry in "${entries[@]}"; do
         local apt_source_lines
-        apt_source_lines=$(deb822_entry_to_source_lines "${entry}")
-        if [[ $? -ne 0 ]]; then
+        if ! apt_source_lines=$(deb822_entry_to_source_lines "${entry}"); then
             log_verbose "There were errors while converting an entry from ${file}"
             errors=1
         fi
