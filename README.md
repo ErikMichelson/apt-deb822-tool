@@ -33,10 +33,14 @@ Verbose output is written to STDERR.
 
 Use the `--help` option for more information.
 
+## Dependencies
+
+This tool only requires basic system dependencies (`coreutils`, `findutils`) that should be installed on every Debian and Ubuntu out of the box.
+The minimum bash version required is 5.0.
+
 ## Known limitations
 
 - Embedded PGP public keys in the `Signed-By` field in Deb822 format are not supported yet
-- Proper conversion from options between both formats (option names sometimes differ) are incorrect
 
 ## Development
 

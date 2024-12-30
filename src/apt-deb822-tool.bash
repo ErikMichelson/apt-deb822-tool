@@ -551,8 +551,22 @@ log_verbose () {
     fi
 }
 
+check_dependencies () {
+    if [[ "${BASH_VERSINFO:-0}" -lt 5 ]]; then
+        log_err "This tool requires at least bash 5.0"
+        exit 1
+    fi
+
+    if ! command -v find &> /dev/null; then
+        log_err "find is required but not installed (package findutils)"
+        exit 1
+    fi
+}
+
 # Main entrypoint, argument parsing and dispatching
 main () {
+    check_dependencies
+
     local mode=0 # 0: unset, 1: list-to-deb822, 2: deb822-to-list
 
     if [[ $# -eq 0 ]]; then
