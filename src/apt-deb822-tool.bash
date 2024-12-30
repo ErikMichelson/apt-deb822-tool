@@ -86,13 +86,18 @@ apt_source_line_to_deb822_line () {
     local in_options=0
     local suites_is_path=0
 
+    local enabled=""
+    local type=""
+    local uri=""
+    local suites=""
+    local components=""
+
     for field in "${fields[@]}"; do
         if [[ -z "${field}" ]]; then
             continue
         fi
 
         # Parse type and enabled status
-        local enabled
         if [[ ${current_step} -eq 0 ]]; then
             if [[ "${field}" == "#"* ]]; then
                 field="${field:1}"
@@ -100,7 +105,7 @@ apt_source_line_to_deb822_line () {
             else
                 enabled=yes
             fi
-            local type="${field}"
+            type="${field}"
             current_step=1
             continue
         fi
@@ -172,25 +177,28 @@ apt_source_line_to_deb822_line () {
             continue
         fi
 
+        if [[ ${current_step} -eq 1 ]]; then
+            current_step=2
+        fi
+
         # Parse uri
         if [[ ${current_step} -eq 2 ]]; then
-            local uri="${field}"
+            uri="${field}"
             current_step=3
             continue
         fi
 
         # Parse suites
         if [[ ${current_step} -eq 3 ]]; then
-            if [[ "${field}" == */* ]]; then
+            if [[ "${field}" == */ ]]; then
                 suites_is_path=1
             fi
-            local suites="${field}"
+            suites="${field}"
             current_step=4
             continue
         fi
 
         # Parse components
-        local components
         if [[ ${current_step} -eq 4 ]]; then
             if [[ ${suites_is_path} -eq 1 ]]; then
                 log_warn "Invalid entry encountered: Suites is a path, skipping components"
@@ -235,6 +243,7 @@ deb822_entry_to_source_lines () {
     local entry_suites=""
     local entry_components=""
     declare -A entry_options
+    entry_options=()
 
     entry=$(echo -e "${entry}")
 
@@ -310,8 +319,13 @@ deb822_entry_to_source_lines () {
         return 1
     fi
 
-    if [[ -z "${entry_components}" ]] && [[ "${entry_suites}" == */* ]]; then
+    if [[ -z "${entry_components}" ]] && [[ "${entry_suites}" != */ ]]; then
         log_err "Missing required field \"Components\" in file ${file}"
+        return 1
+    fi
+
+    if [[ -n "${entry_components}" ]] && [[ "${entry_suites}" == */ ]]; then
+        log_err "Components are not allowed when Suites is a path in file ${file}"
         return 1
     fi
 
