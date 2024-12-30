@@ -135,7 +135,7 @@ apt_source_line_to_deb822_line () {
                 values=$(echo "${field}" | cut -d'=' -f2 | tr ',' ' ')
                 options[${key}]="${values}"
             else
-                echo "Invalid option detected: ${field}" 1>&2
+                log_warn "Invalid option detected: ${field}"
             fi
 
             continue
@@ -162,7 +162,7 @@ apt_source_line_to_deb822_line () {
         local components
         if [[ ${current_step} -eq 4 ]]; then
             if [[ ${suites_is_path} -eq 1 ]]; then
-                echo "Invalid entry: Suites is a path, skipping components" 1>&2
+                log_warn "Invalid entry encountered: Suites is a path, skipping components"
             else
                 components+="${field}"
             fi
@@ -208,6 +208,7 @@ deb822_entry_to_source_lines () {
     entry=$(echo -e "${entry}")
 
     if [[ -z "${entry}" ]]; then
+        log_verbose "Skipping empty entry"
         return
     fi
 
@@ -241,7 +242,7 @@ deb822_entry_to_source_lines () {
                     entry_enabled=0
                 else
                     log_err "Invalid value for key \"Enabled\" in file ${file}"
-                    return
+                    return 1
                 fi
                 ;;
             Types)
@@ -265,22 +266,22 @@ deb822_entry_to_source_lines () {
     # Check if all required fields are present
     if [[ -z "${entry_types}" ]]; then
         log_err "Missing required field \"Types\" in file ${file}"
-        return
+        return 1
     fi
 
     if [[ -z "${entry_uris}" ]]; then
         log_err "Missing required field \"URIs\" in file ${file}"
-        return
+        return 1
     fi
 
     if [[ -z "${entry_suites}" ]]; then
         log_err "Missing required field \"Suites\" in file ${file}"
-        return
+        return 1
     fi
 
     if [[ -z "${entry_components}" ]] && [[ "${entry_suites}" == */* ]]; then
         log_err "Missing required field \"Components\" in file ${file}"
-        return
+        return 1
     fi
 
     # Convert the entry to apt-list format
@@ -324,6 +325,7 @@ deb822_entry_to_source_lines () {
     done
 
     # Return the apt-list formatted entries
+    log_verbose "Created ${#apt_list_entries[@]} apt-list entries for Deb822 entry"
     echo "${apt_list_entries[@]}"
 }
 
@@ -348,6 +350,10 @@ to_deb822 () {
         if [[ ${line} =~ ^(deb|#deb|deb-src|#deb-src) ]]; then
             local deb822
             deb822=$(apt_source_line_to_deb822_line "${line}")
+            if [[ $? -ne 0 ]]; then
+                log_verbose "There were errors while converting an entry from ${file}"
+                errors=1
+            fi
             echo -e "${deb822}\n" >> "${tmpfile}"
         else
             # Copy comments as is
@@ -361,25 +367,11 @@ to_deb822 () {
         fi
     done < "${file}"
 
-    if [[ ${write_to_file} -eq 1 ]]; then
-        # Create backup if not disabled
-        if [[ ${no_backup} -eq 0 ]]; then
-            mv "${file}" "${file}.bak"
-        else
-            rm -f "${file}" || log_warn "Failed to remove original file: ${file}"
-        fi
-        # Rename file to .sources and replace original file
-        new_file_name="${file%.list.distUpgrade}"
-        new_file_name="${new_file_name%.list}"
-        new_file_name="${new_file_name}.sources"
-        mv "${tmpfile}" "${new_file_name}"
-    else
-        cat "${tmpfile}"
-        if [[ ${no_null} -eq 0 ]]; then
-            echo -ne "\0"
-        fi
-        rm -f "${tmpfile}" || log_warn "Failed to remove temporary file: ${tmpfile}"
-    fi
+    new_file_name="${file%.list.distUpgrade}"
+    new_file_name="${new_file_name%.list}"
+    new_file_name="${new_file_name}.sources"
+
+    write_output_files "${tmpfile}" "${file}" "${new_file_name}"
 }
 
 # Converts a file in deb822 format to apt-list format
@@ -412,8 +404,26 @@ to_list () {
     for entry in "${entries[@]}"; do
         local apt_source_lines
         apt_source_lines=$(deb822_entry_to_source_lines "${entry}")
+        if [[ $? -ne 0 ]]; then
+            log_verbose "There were errors while converting an entry from ${file}"
+            errors=1
+        fi
         echo -e "${apt_source_lines}\n" >> "${tmpfile}"
     done
+
+    write_output_files "${tmpfile}" "${file}" "${file%.sources}.list"
+}
+
+# Writes the output files or prints to STDOUT
+#
+# Arguments:
+#   $1: The temporary file to write
+#   $2: The original file to replace
+#   $3: The new file name
+write_output_files () {
+    local tmpfile="$1"
+    local file="$2"
+    local new_file_name="$3"
 
     if [[ ${write_to_file} -eq 1 ]]; then
         # Create backup if not disabled
@@ -422,9 +432,6 @@ to_list () {
         else
             rm -f "${file}" || log_warn "Failed to remove original file: ${file}"
         fi
-        # Rename file to .list and replace original file
-        new_file_name="${file%.sources}"
-        new_file_name="${new_file_name}.list"
         mv "${tmpfile}" "${new_file_name}"
     else
         cat "${tmpfile}"
@@ -480,17 +487,30 @@ show_version () {
     echo "${REPO_URL}"
 }
 
-# Logs an error message
+# Global error flag
+errors=0
+
+# Logs an error message and sets the error flag
+#
+# Arguments:
+#   $1: The error message to log
 log_err () {
+    errors=1
     echo "ERROR: $1" 1>&2
 }
 
 # Logs a warning message
+#
+# Arguments:
+#   $1: The warning message to log
 log_warn () {
     echo "WARNING: $1" 1>&2
 }
 
-# Logs a verbose message
+# Logs a verbose message if verbose logging is enabled
+#
+# Arguments:
+#   $1: The verbose message to log
 log_verbose () {
     if [[ ${verbose} -eq 1 ]]; then
         echo "VERBOSE: $1" 1>&2
@@ -528,7 +548,7 @@ main () {
                 if [[ "${arg}" == "-"* ]]; then
                     cli_options+=( "${arg}" )
                 else
-                    log_err "Unknown argument given. Expected mode or cli_options."
+                    log_err "Unknown argument given. Expected mode or options."
                     exit 1
                 fi
             fi
@@ -570,6 +590,7 @@ main () {
                 ;;
             -v|--verbose)
                 verbose=1
+                log_verbose "Verbose logging enabled"
                 ;;
             --no-backup)
                 no_backup=1
@@ -612,6 +633,7 @@ main () {
                 log_warn "Ignoring --write option when reading from STDIN"
                 write_to_file=0
             fi
+            log_verbose "Reading from STDIN"
             local tmpfile
             tmpfile=$(read_stdin_to_tempfile)
             files=( "${tmpfile}" )
@@ -653,6 +675,10 @@ main () {
     for file in "${remove_files[@]}"; do
         rm -f "${file}" || log_warn "Failed to remove temporary file: ${file}"
     done
+
+    if [[ ${errors} -eq 1 ]]; then
+        exit 1
+    fi
 }
 
 # Pass all arguments to main
