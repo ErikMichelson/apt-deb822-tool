@@ -5,36 +5,67 @@ PROGNAME="apt-deb822-tool"
 VERSION="1.0"
 REPO_URL="https://github.com/ErikMichelson/apt-deb822-tool"
 
-# Capitalizes a string with words separated by '-'
+# Converts an option from apt-list to deb822 format
 #
 # Arguments:
-#   $1: The string to capitalize
+#   $1: The option to convert
 # Output:
-#   The capitalized string
-# Example: capitalize_options "signed-by" -> "Signed-By", capitalize_options "arch" -> "Arch"
-capitalize_options () {
-    local words
-    IFS='-' read -ra words <<< "${1}"
-    for i in "${!words[@]}"; do
-        words[i]="${words[$i]^}"
-    done
-    echo "${words[*]}" | tr ' ' '-'
+#   The converted option
+to_deb822_options () {
+    local option="$1"
+
+    case "${option}" in
+        arch)
+            echo "Architectures"
+            ;;
+        lang)
+            echo "Languages"
+            ;;
+        target)
+            echo "Targets"
+            ;;
+        pdiffs)
+            echo "PDiffs"
+            ;;
+        inrelease-path)
+            echo "InRelease-Path"
+            ;;
+        # Upper case the first letter of each word separated by '-' for all other options
+        *)
+            local words
+            IFS='-' read -ra words <<< "${1}"
+            for i in "${!words[@]}"; do
+                words[i]="${words[$i]^}"
+            done
+            echo "${words[*]}" | tr ' ' '-'
+            ;;
+    esac
 }
 
-# Lowercases a string with words separated by '-'
+# Converts an option from deb822 to apt-list format
 #
 # Arguments:
-#   $1: The string to lowercase
+#   $1: The option to convert
 # Output:
-#   The lowercased string
-# Example: lowercase_options "Signed-By" -> "signed-by", lowercase_options "Arch" -> "arch"
-lowercase_options () {
-    local words
-    IFS='-' read -ra words <<< "${1}"
-    for i in "${!words[@]}"; do
-        words[i]="${words[$i],,}"
-    done
-    echo "${words[*]}" | tr ' ' '-'
+#   The converted option
+to_apt_list_options () {
+    local option="$1"
+
+    case "${option}" in
+        Architectures)
+            echo "arch"
+            ;;
+        Languages)
+            echo "lang"
+            ;;
+        Targets)
+            echo "target"
+            ;;
+        # Lowercase all letters
+        *)
+            echo "${option,,}"
+            ;;
+    esac
 }
 
 # Converts an apt source line to deb822 format
@@ -173,7 +204,7 @@ apt_source_line_to_deb822_line () {
     local deb822_options=""
     for key in "${!options[@]}"; do
         local value="${options[${key}]}"
-        key=$(capitalize_options "${key}")
+        key=$(to_deb822_options "${key}")
         deb822_options+="${key}: ${value}\n"
     done
 
@@ -258,7 +289,7 @@ deb822_entry_to_source_lines () {
                 entry_components="${entry_value}"
                 ;;
             *)
-                entry_options[$(lowercase_options "${entry_key}")]="${entry_value}"
+                entry_options[$(to_apt_list_options "${entry_key}")]="${entry_value// /,}"
                 ;;
         esac
     done
@@ -308,10 +339,15 @@ deb822_entry_to_source_lines () {
                 apt_list_entry+="${type}"
                 if [[ ${#entry_options[@]} -gt 0 ]]; then
                     apt_list_entry+=" ["
+                    local first_option=1
                     for key in "${!entry_options[@]}"; do
+                        if [[ ${first_option} -eq 0 ]]; then
+                            apt_list_entry+=" "
+                        else
+                            first_option=0
+                        fi
                         apt_list_entry+="${key}="
                         apt_list_entry+="${entry_options[${key}]}"
-                        apt_list_entry+=" "
                     done
                     apt_list_entry+="]"
                 fi
