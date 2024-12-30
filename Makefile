@@ -6,4 +6,7 @@ help:
 install:
 	install -Dm755 src/apt-deb822-tool.bash $(PREFIX)/bin/apt-deb822-tool
 
-.PHONY: help
+test:
+	@bats test
+
+.PHONY: help test
