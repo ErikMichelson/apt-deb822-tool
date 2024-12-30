@@ -1,0 +1,5 @@
+# Comments are ignored
+
+deb https://valid.example.com/debian all main
+deb-src https://valid.example.com/debian path/
+#deb [signed-by=/usr/share/keyrings/example.asc lang=en,de,fr,it arch=amd64,armhf] https://valid.example.com/debian all main

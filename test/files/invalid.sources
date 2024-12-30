@@ -1,0 +1,17 @@
+Enabled: foo
+Types: deb
+URIs: https://invalid.example.com/debian
+Suites: all
+Components: main 
+
+Enabled: yes
+Types: deb-src
+URI: wrong
+Suites: all
+Components: main
+
+Enabled: yes
+Types: deb
+URIs: https://invalid.example.com/debian
+Suites: path/
+Components: main

@@ -1,0 +1,19 @@
+Enabled: yes
+Types: deb
+URIs: https://valid.example.com/debian
+Suites: all
+Components: main
+
+Enabled: yes
+Types: deb-src
+URIs: https://valid.example.com/debian
+Suites: path/
+
+Enabled: no
+Types: deb
+URIs: https://valid.example.com/debian
+Suites: all
+Components: main
+Signed-By: /usr/share/keyrings/example.asc
+Languages: en de fr it
+Architectures: amd64 armhf
