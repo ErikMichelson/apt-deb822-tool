@@ -203,7 +203,7 @@ apt_source_line_to_deb822_line () {
             if [[ ${suites_is_path} -eq 1 ]]; then
                 log_warn "Invalid entry encountered: Suites is a path, skipping components"
             else
-                components+="${field}"
+                components+=" ${field}"
             fi
         fi
     done
@@ -220,7 +220,7 @@ apt_source_line_to_deb822_line () {
     local deb822
     deb822=$(printf "Enabled: %s\nTypes: %s\nURIs: %s\nSuites: %s" "${enabled}" "${type}" "${uri}" "${suites}")
     if [[ ${suites_is_path} -eq 0 ]]; then
-        deb822+="\nComponents: ${components}"
+        deb822+="\nComponents:${components}"
     fi
     deb822+="\n${deb822_options}"
 
