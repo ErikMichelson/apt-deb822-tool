@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run Shellcheck
         run: shellcheck -s bash src/apt-deb822-tool.bash
